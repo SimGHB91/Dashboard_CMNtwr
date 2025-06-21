@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="it">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Dashboard RO - Analisi Quantità ed Economica (Modular v2.0)</title>
+        
+        <!-- External Libraries -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+        
+        <!-- CSS -->
+        <link rel="stylesheet" href="style.css">
+        
+        <!-- Module Preloads for Performance -->
+        <link rel="modulepreload" href="js/config.js">
+        <link rel="modulepreload" href="js/core.js">
+    </head>
+    <body class="light-theme" data-theme="light">
+        <div class="dashboard-container">
+            <!-- Header Section -->
+            <div class="header">
+                <h1>Dashboard Gestione R.O. CEMINetwork</h1>
+                <p>Sistema Modulare v2.0 - Performance Optimized</p>
+                <div class="header-actions">
+                    <button class="theme-toggle" id="themeToggle" title="Cambia tema">
+                        <span class="theme-icon">🌙</span>
+                    </button>
+                    <button class="action-button" onclick="handleExport()" id="exportBtn">
+                        <span>📊</span> Esporta
+                    </button>
+                    <button class="action-button" onclick="window.DashboardRO?.resetDashboard()" id="resetBtn">
+                        <span>🔄</span> Reset
+                    </button>
+                    <button class="action-button" onclick="window.DashboardRO?.toggleFullscreen?.()" id="fullscreenBtn">
+                        <span>⛶</span> Schermo Intero
+                    </button>
+                </div>
+            </div>
+
+            <!-- File Upload Section -->
+            <div class="file-upload-section">
+                <div class="upload-area" id="uploadArea">
+                    <div class="loading-spinner" id="loadingSpinner"></div>
+                    <div class="upload-content">
+                        <div class="upload-icon">📊</div>
+                        <div class="upload-text">Carica File Excel</div>
+                        <div class="upload-subtext">
+                            Trascina qui il file TAB_Gestione_Offerte_202*.xlsx oppure clicca per selezionarlo
+                            <br><small>Formati supportati: .xlsx, .xls | Dimensione max: 50MB</small>
+                        </div>
+                        <input type="file" id="fileInput" class="file-input" accept=".xlsx,.xls" multiple="false">
+                        <button class="upload-button" onclick="document.getElementById('fileInput').click()">
+                            Scegli File
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Status Messages -->
+                <div class="file-info" id="fileInfo"></div>
+                <div class="progress-bar" id="progressBar" style="display: none;">
+                    <div class="progress-fill" id="progressFill"></div>
+                    <span class="progress-text" id="progressText">0%</span>
+                </div>
+                <div class="error-message" id="errorMessage"></div>
+                <div class="success-message" id="successMessage"></div>
+                <div class="warning-message" id="warningMessage"></div>
+            </div>
+
+            <!-- Sidebar with Filters -->
+            <div class="sidebar">
+                <!-- Tipologia RO Toggle -->
+                <div class="tipo-ro-toggle">
+                    <div class="toggle-title">Tipologia RO</div>
+                    <button class="active" data-tipo="tutti" onclick="handleTipoChange('tutti')">
+                        <span>RO totali</span>
+                        <small class="count" id="countTutti">0</small>
+                    </button>
+                    <button data-tipo="normali" onclick="handleTipoChange('normali')">
+                        <span>RO Normali</span>
+                        <small class="count" id="countNormali">0</small>
+                    </button>
+                    <button data-tipo="commerciali" onclick="handleTipoChange('commerciali')">
+                        <span>RO Commerciali</span>
+                        <small class="count" id="countCommerciali">0</small>
+                    </button>
+                </div>
+
+                <!-- Advanced Filters -->
+                <div class="filters-section">
+                    <div class="filters-header">
+                        <div class="filters-title">
+                            <span>Filtri Avanzati</span>
+                            <span class="active-filters-count" id="activeFiltersCount"></span>
+                        </div>
+                        <button class="reset-filters" onclick="handleResetFilters()" id="resetFiltersBtn">
+                            <span>🔄</span> Reset
+                        </button>
+                    </div>
+                    
+                    <div class="filters-grid">
+                        <!-- Search Filter -->
+                        <div class="filter-group">
+                            <label for="globalSearch">
+                                <span>🔍</span> Ricerca Globale
+                            </label>
+                            <input type="text" id="globalSearch" placeholder="Cerca in tutti i campi..." class="search-input">
+                        </div>
+
+                        <!-- Date Range -->
+                        <div class="filter-group">
+                            <label for="filterMese">
+                                <span>📅</span> Periodo
+                            </label>
+                            <select id="filterMese">
+                                <option value="">Tutti i mesi</option>
+                            </select>
+                        </div>
+
+                        <!-- Country Filter -->
+                        <div class="filter-group">
+                            <label for="filterNazione">
+                                <span>🌍</span> Nazione
+                            </label>
+                            <select id="filterNazione">
+                                <option value="">Tutte le nazioni</option>
+                            </select>
+                        </div>
+
+                        <!-- Agent Filter -->
+                        <div class="filter-group">
+                            <label for="filterAgente">
+                                <span>👤</span> Agente
+                            </label>
+                            <select id="filterAgente">
+                                <option value="">Tutti gli agenti</option>
+                            </select>
+                        </div>
+
+                        <!-- Outcome Filter -->
+                        <div class="filter-group">
+                            <label for="filterEsito">
+                                <span>🎯</span> Esito
+                            </label>
+                            <select id="filterEsito">
+                                <option value="">Tutti gli esiti</option>
+                            </select>
+                        </div>
+
+                        <!-- Probability Filter -->
+                        <div class="filter-group">
+                            <label for="filterPercentuale">
+                                <span>📊</span> Probabilità
+                            </label>
+                            <select id="filterPercentuale">
+                                <option value="">Tutte le probabilità</option>
+                            </select>
+                        </div>
+
+                        <!-- Date From -->
+                        <div class="filter-group">
+                            <label for="filterDataDa">
+                                <span>📅</span> Data Da
+                            </label>
+                            <input type="date" id="filterDataDa">
+                        </div>
+
+                        <!-- Date To -->
+                        <div class="filter-group">
+                            <label for="filterDataA">
+                                <span>📅</span> Data A
+                            </label>
+                            <input type="date" id="filterDataA">
+                        </div>
+
+                        <!-- Value Range -->
+                        <div class="filter-group">
+                            <label for="filterValueMin">
+                                <span>💰</span> Valore Min (€)
+                            </label>
+                            <input type="number" id="filterValueMin" placeholder="0" min="0">
+                        </div>
+
+                        <div class="filter-group">
+                            <label for="filterValueMax">
+                                <span>💰</span> Valore Max (€)
+                            </label>
+                            <input type="number" id="filterValueMax" placeholder="Illimitato" min="0">
+                        </div>
+                    </div>
+
+                    <!-- Quick Filters -->
+                    <div class="quick-filters">
+                        <div class="quick-filters-title">Filtri Rapidi</div>
+                        <div class="quick-filters-buttons">
+                            <button class="quick-filter-btn" onclick="handleQuickFilter('thisMonth')">
+                                Questo Mese
+                            </button>
+                            <button class="quick-filter-btn" onclick="handleQuickFilter('lastMonth')">
+                                Mese Scorso
+                            </button>
+                            <button class="quick-filter-btn" onclick="handleQuickFilter('thisQuarter')">
+                                Questo Trimestre
+                            </button>
+                            <button class="quick-filter-btn" onclick="handleQuickFilter('highValue')">
+                                Alto Valore (&gt;50k€)
+                            </button>
+                            <button class="quick-filter-btn" onclick="handleQuickFilter('won')">
+                                Solo Vinte
+                            </button>
+                            <button class="quick-filter-btn" onclick="handleQuickFilter('highProbability')">
+                                Alta Probabilità (90%)
+                            </button>
+                            <button class="quick-filter-btn" onclick="handleQuickFilter('mediumProbability')">
+                                Media Probabilità (60%)
+                            </button>
+                            <button class="quick-filter-btn" onclick="handleQuickFilter('lowProbability')">
+                                Bassa Probabilità (10%)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="main-content">
+                <!-- No Data Message -->
+                <div id="noDataMessage" class="no-data-message">
+                    <div class="no-data-icon">📊</div>
+                    <h3>Nessun dato caricato</h3>
+                    <p>Carica un file Excel per visualizzare la dashboard con analisi avanzate</p>
+                </div>
+
+                <!-- Dashboard Content -->
+                <div id="dashboardContent" style="display: none;">
+                    <!-- Summary Cards -->
+                    <div class="summary-cards">
+                        <div class="summary-card" data-metric="totalRO">
+                            <div class="data-quality-indicator" id="indicator1" title="Qualità dati"></div>
+                            <div class="card-icon">📊</div>
+                            <h3>Totale RO</h3>
+                            <div class="value" id="totalRO">0</div>
+                            <div class="subtitle">Richieste di Offerta</div>
+                            <div class="trend" id="trendTotalRO"></div>
+                        </div>
+                        
+                        <div class="summary-card" data-metric="totalValue">
+                            <div class="data-quality-indicator" id="indicator2" title="Qualità dati"></div>
+                            <div class="card-icon">💰</div>
+                            <h3>Valore Totale</h3>
+                            <div class="value" id="totalValue">€0</div>
+                            <div class="subtitle">Valore Offerte</div>
+                            <div class="trend" id="trendTotalValue"></div>
+                        </div>
+                        
+                        <div class="summary-card" data-metric="totalContracts">
+                            <div class="data-quality-indicator" id="indicator3" title="Qualità dati"></div>
+                            <div class="card-icon">🏆</div>
+                            <h3>Valore Contratti</h3>
+                            <div class="value" id="totalContracts">€0</div>
+                            <div class="subtitle">Contratti Chiusi</div>
+                            <div class="trend" id="trendTotalContracts"></div>
+                        </div>
+                        
+                        <div class="summary-card" data-metric="successRate">
+                            <div class="data-quality-indicator" id="indicator4" title="Qualità dati"></div>
+                            <div class="card-icon">🎯</div>
+                            <h3>Tasso Successo</h3>
+                            <div class="value" id="successRate">0%</div>
+                            <div class="subtitle">Contratti/Offerte</div>
+                            <div class="trend" id="trendSuccessRate"></div>
+                        </div>
+
+                        <div class="summary-card" data-metric="avgValue">
+                            <div class="data-quality-indicator" id="indicator5" title="Qualità dati"></div>
+                            <div class="card-icon">📈</div>
+                            <h3>Valore Medio</h3>
+                            <div class="value" id="avgValue">€0</div>
+                            <div class="subtitle">Per Offerta</div>
+                            <div class="trend" id="trendAvgValue"></div>
+                        </div>
+
+                        <div class="summary-card" data-metric="conversion">
+                            <div class="data-quality-indicator" id="indicator6" title="Qualità dati"></div>
+                            <div class="card-icon">🔄</div>
+                            <h3>Conversione</h3>
+                            <div class="value" id="conversionRate">0%</div>
+                            <div class="subtitle">Valore Contratti/Offerte</div>
+                            <div class="trend" id="trendConversion"></div>
+                        </div>
+
+                        <div class="summary-card" data-metric="probabilisticValue">
+                            <div class="data-quality-indicator" id="indicator7" title="Qualità dati"></div>
+                            <div class="card-icon">🎯</div>
+                            <h3>Valore Probabile</h3>
+                            <div class="value" id="probabilisticValue">€0</div>
+                            <div class="subtitle">Basato su % Realizzazione</div>
+                            <div class="trend" id="trendProbabilisticValue"></div>
+                        </div>
+                        
+                        <div class="summary-card" data-metric="avgProbability">
+                            <div class="data-quality-indicator" id="indicator8" title="Qualità dati"></div>
+                            <div class="card-icon">📊</div>
+                            <h3>Probabilità Media</h3>
+                            <div class="value" id="avgProbability">0%</div>
+                            <div class="subtitle">Media Ponderata</div>
+                            <div class="trend" id="trendAvgProbability"></div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Grid -->
+                    <div class="charts-grid">
+                        <!-- Chart 1: RO Types Distribution -->
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <div class="chart-title">
+                                    <span class="chart-icon">🍩</span>
+                                    Distribuzione RO per Tipo
+                                </div>
+                                <div class="chart-options">
+                                    <button class="chart-option-btn active" onclick="handleChartTypeChange('tipoChart', 'doughnut')" title="Grafico a ciambella">
+                                        🍩
+                                    </button>
+                                    <button class="chart-option-btn" onclick="handleChartTypeChange('tipoChart', 'bar')" title="Grafico a barre">
+                                        📊
+                                    </button>
+                                </div>
+                            </div>
+                            <canvas id="tipoChart" class="chart-canvas"></canvas>
+                        </div>
+
+                        <!-- Chart 2: Top Agents -->
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <div class="chart-title">
+                                    <span class="chart-icon">👥</span>
+                                    Top 5 Agenti
+                                </div>
+                                <div class="chart-options">
+                                    <button class="chart-option-btn active" onclick="handleAgentiViewChange('count')" title="Per numero RO">
+                                        #️⃣
+                                    </button>
+                                    <button class="chart-option-btn" onclick="handleAgentiViewChange('value')" title="Per valore">
+                                        💰
+                                    </button>
+                                </div>
+                            </div>
+                            <canvas id="agentiChart" class="chart-canvas"></canvas>
+                        </div>
+
+                        <!-- Chart 3: Temporal Trend - Full Width -->
+                        <div class="chart-container full-width-chart">
+                            <div class="chart-header">
+                                <div class="chart-title">
+                                    <span class="chart-icon">📈</span>
+                                    Andamento Temporale RO e Valori
+                                </div>
+                                <div class="chart-options">
+                                    <button class="chart-option-btn active" onclick="handleTemporaleViewChange('month')" title="Vista mensile">
+                                        📅
+                                    </button>
+                                    <button class="chart-option-btn" onclick="handleTemporaleViewChange('quarter')" title="Vista trimestrale">
+                                        📊
+                                    </button>
+                                    <button class="chart-option-btn" onclick="handleTemporaleViewChange('week')" title="Vista settimanale">
+                                        📆
+                                    </button>
+                                </div>
+                            </div>
+                            <canvas id="temporaleChart" class="chart-canvas"></canvas>
+                        </div>
+
+                        <!-- Chart 4: Outcomes -->
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <div class="chart-title">
+                                    <span class="chart-icon">🎯</span>
+                                    Distribuzione Esiti
+                                </div>
+                                <div class="chart-options">
+                                    <button class="chart-option-btn active" onclick="handleChartTypeChange('esitiChart', 'pie')" title="Grafico a torta">
+                                        🥧
+                                    </button>
+                                    <button class="chart-option-btn" onclick="handleChartTypeChange('esitiChart', 'bar')" title="Grafico a barre">
+                                        📊
+                                    </button>
+                                </div>
+                            </div>
+                            <canvas id="esitiChart" class="chart-canvas"></canvas>
+                        </div>
+
+                        <!-- Chart 5: Categories -->
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <div class="chart-title">
+                                    <span class="chart-icon">📂</span>
+                                    Top 6 Categorie per Valore
+                                </div>
+                                <div class="chart-options">
+                                    <button class="chart-option-btn active" onclick="handleCategorieViewChange('value')" title="Per valore">
+                                        💰
+                                    </button>
+                                    <button class="chart-option-btn" onclick="handleCategorieViewChange('count')" title="Per numero">
+                                        #️⃣
+                                    </button>
+                                </div>
+                            </div>
+                            <canvas id="categorieChart" class="chart-canvas"></canvas>
+                        </div>
+
+                        <!-- Chart 6: Countries Distribution -->
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <div class="chart-title">
+                                    <span class="chart-icon">🌍</span>
+                                    RO per Nazione
+                                </div>
+                                <div class="chart-options">
+                                    <button class="chart-option-btn active" onclick="handleChartTypeChange('nazioniChart', 'bar')" title="Grafico a barre">
+                                        📊
+                                    </button>
+                                    <button class="chart-option-btn" onclick="handleChartTypeChange('nazioniChart', 'pie')" title="Grafico a torta">
+                                        🥧
+                                    </button>
+                                </div>
+                            </div>
+                            <canvas id="nazioniChart" class="chart-canvas"></canvas>
+                        </div>
+
+                        <!-- Chart 7: Distribuzione Percentuale Realizzazione -->
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <div class="chart-title">
+                                    <span class="chart-icon">📊</span>
+                                    Distribuzione Probabilità Realizzazione
+                                </div>
+                                <div class="chart-options">
+                                    <button class="chart-option-btn active" onclick="handlePercRealizzazioneViewChange('count')" title="Per numero RO">
+                                        #️⃣
+                                    </button>
+                                    <button class="chart-option-btn" onclick="handlePercRealizzazioneViewChange('value')" title="Per valore">
+                                        💰
+                                    </button>
+                                    <button class="chart-option-btn" onclick="handleChartTypeChange('percRealizzazioneChart', 'doughnut')" title="Grafico a ciambella">
+                                        🍩
+                                    </button>
+                                    <button class="chart-option-btn" onclick="handleChartTypeChange('percRealizzazioneChart', 'bar')" title="Grafico a barre">
+                                        📊
+                                    </button>
+                                </div>
+                            </div>
+                            <canvas id="percRealizzazioneChart" class="chart-canvas"></canvas>
+                        </div>
+
+                        <!-- Chart 8: Analisi Probabilistica -->
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <div class="chart-title">
+                                    <span class="chart-icon">🎯</span>
+                                    Analisi Economica Probabilistica
+                                </div>
+                                <div class="chart-options">
+                                    <button class="chart-option-btn active" onclick="handleRefreshAnalisiProbabilistica()" title="Aggiorna analisi">
+                                        🔄
+                                    </button>
+                                </div>
+                            </div>
+                            <canvas id="analisiProbabilisticaChart" class="chart-canvas"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Data Table Section -->
+                    <div class="data-table-section" id="dataTableSection" style="display: none;">
+                        <div class="table-header">
+                            <h3>
+                                <span>📋</span>
+                                Dettaglio Dati
+                                <span class="table-count" id="tableCount">(0 record)</span>
+                            </h3>
+                            <div class="table-actions">
+                                <button class="action-button" onclick="handleExportFilteredData()">
+                                    <span>📤</span> Esporta Filtrati
+                                </button>
+                                <button class="action-button" onclick="handleToggleTableView()">
+                                    <span>👁️</span> Nascondi Tabella
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-container">
+                            <table id="dataTable" class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th onclick="handleSortTable('RO_num')">RO Numero <span class="sort-icon">↕️</span></th>
+                                        <th onclick="handleSortTable('RO_data')">Data <span class="sort-icon">↕️</span></th>
+                                        <th onclick="handleSortTable('Nazione')">Nazione <span class="sort-icon">↕️</span></th>
+                                        <th onclick="handleSortTable('Agente_nome')">Agente <span class="sort-icon">↕️</span></th>
+                                        <th onclick="handleSortTable('Offerta_Valore')">Valore Offerta <span class="sort-icon">↕️</span></th>
+                                        <th onclick="handleSortTable('Offerta_Esito')">Esito <span class="sort-icon">↕️</span></th>
+                                        <th onclick="handleSortTable('Valore_Contratto')">Valore Contratto <span class="sort-icon">↕️</span></th>
+                                        <th onclick="handleSortTable('Perc_realizzazione')">Probabilità <span class="sort-icon">↕️</span></th>
+                                        <th onclick="handleSortTable('Offerta_Categoria')">Categoria <span class="sort-icon">↕️</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dataTableBody">
+                                    <!-- Data will be populated by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="table-pagination">
+                            <div class="pagination-info">
+                                Mostra <span id="paginationStart">0</span>-<span id="paginationEnd">0</span> di <span id="paginationTotal">0</span> record
+                            </div>
+                            <div class="pagination-controls">
+                                <button onclick="handleChangePage(-1)" id="prevPageBtn">‹ Precedente</button>
+                                <span class="page-numbers" id="pageNumbers"></span>
+                                <button onclick="handleChangePage(1)" id="nextPageBtn">Successiva ›</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Bar -->
+                    <div class="action-bar">
+                        <button class="action-button secondary" onclick="handleToggleTableView()" id="toggleTableBtn">
+                            <span>📋</span> Mostra Dettaglio Dati
+                        </button>
+                        <button class="action-button secondary" onclick="handleGenerateReport()">
+                            <span>📄</span> Genera Report
+                        </button>
+                        <button class="action-button secondary" onclick="handleShareData()">
+                            <span>📤</span> Condividi
+                        </button>
+                        <button class="action-button secondary" onclick="handlePrintDashboard()">
+                            <span>🖨️</span> Stampa
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+            <div class="loading-content">
+                <div class="loading-spinner-large"></div>
+                <h3>Elaborazione in corso...</h3>
+                <p id="loadingMessage">Caricamento dati...</p>
+            </div>
+        </div>
+
+        <!-- Modal for Reports -->
+        <div class="modal" id="reportModal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Generazione Report</h3>
+                    <button class="modal-close" onclick="handleCloseModal('reportModal')">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="report-options">
+                        <label>
+                            <input type="checkbox" checked> Riepilogo Generale
+                        </label>
+                        <label>
+                            <input type="checkbox" checked> Grafici
+                        </label>
+                        <label>
+                            <input type="checkbox"> Dati Dettagliati
+                        </label>
+                        <label>
+                            <input type="checkbox"> Analisi Trend
+                        </label>
+                    </div>
+                    <div class="report-format">
+                        <label>Formato Output:</label>
+                        <select id="reportFormat">
+                            <option value="excel">Excel (.xlsx)</option>
+                            <option value="pdf">PDF</option>
+                            <option value="csv">CSV</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="action-button" onclick="handleDownloadReport()">Genera Report</button>
+                    <button class="action-button secondary" onclick="handleCloseModal('reportModal')">Annulla</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notifications -->
+        <div class="toast-container" id="toastContainer"></div>
+
+        <!-- JavaScript Modules -->
+        <script type="module">
+            // Import core modules
+            import('./js/config.js').then(() => {
+                return import('./js/core.js');
+            }).then(() => {
+                // Pre-carica dataEngine per drag & drop immediato
+                return window.DashboardRO?.loadModule('dataEngine');
+            }).then(() => {
+                // Pre-carica chartEngine se Chart.js disponibile
+                if (typeof Chart !== 'undefined') {
+                    return window.DashboardRO?.loadModule('chartEngine');
+                }
+                return Promise.resolve();
+            }).then(() => {
+                console.log('🚀 Core modules + dataEngine + chartEngine loaded successfully');
+            }).catch(error => {
+                console.error('❌ Error loading core modules:', error);
+                document.body.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: center; height: 100vh; text-align: center; font-family: Arial, sans-serif;">
+                        <div>
+                            <h1 style="color: #dc3545;">⚠️ Errore Caricamento</h1>
+                            <p>Impossibile caricare i moduli della dashboard.</p>
+                            <p style="color: #666;">Verifica che tutti i file JavaScript siano presenti nella cartella js/</p>
+                            <button onclick="location.reload()" style="padding: 10px 20px; margin-top: 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                                🔄 Ricarica Pagina
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        </script>
+
+        <!-- Event Handlers for UI Interactions -->
+        <script>
+            // Global event handlers that delegate to appropriate modules
+            
+            async function handleExport() {
+                try {
+                    const exportEngine = await window.DashboardRO?.loadModule('exportEngine');
+                    if (exportEngine) {
+                        await exportEngine.exportData();
+                    }
+                } catch (error) {
+                    console.error('Error loading export module:', error);
+                    window.DashboardRO?.showToast('Errore', 'Impossibile esportare i dati', 'error');
+                }
+            }
+
+            async function handleTipoChange(tipo) {
+                try {
+                    const filterEngine = await window.DashboardRO?.loadModule('filterEngine');
+                    if (filterEngine) {
+                        filterEngine.changeTipoFilter(tipo);
+                    }
+                } catch (error) {
+                    console.error('Error handling tipo change:', error);
+                }
+            }
+
+            async function handleResetFilters() {
+                try {
+                    const filterEngine = await window.DashboardRO?.loadModule('filterEngine');
+                    if (filterEngine) {
+                        filterEngine.resetFilters();
+                    }
+                } catch (error) {
+                    console.error('Error resetting filters:', error);
+                }
+            }
+
+            async function handleQuickFilter(type) {
+                try {
+                    const filterEngine = await window.DashboardRO?.loadModule('filterEngine');
+                    if (filterEngine) {
+                        filterEngine.applyQuickFilter(type);
+                    }
+                } catch (error) {
+                    console.error('Error applying quick filter:', error);
+                }
+            }
+
+            async function handleChartTypeChange(chartId, type) {
+                try {
+                    const chartEngine = await window.DashboardRO?.loadModule('chartEngine');
+                    if (chartEngine) {
+                        chartEngine.toggleChartType(chartId, type);
+                    }
+                } catch (error) {
+                    console.error('Error changing chart type:', error);
+                }
+            }
+
+            async function handleAgentiViewChange(view) {
+                try {
+                    const chartEngine = await window.DashboardRO?.loadModule('chartEngine');
+                    if (chartEngine) {
+                        chartEngine.toggleAgentiView(view);
+                    }
+                } catch (error) {
+                    console.error('Error changing agenti view:', error);
+                }
+            }
+
+            async function handleTemporaleViewChange(view) {
+                try {
+                    const chartEngine = await window.DashboardRO?.loadModule('chartEngine');
+                    if (chartEngine) {
+                        chartEngine.toggleTemporaleView(view);
+                    }
+                } catch (error) {
+                    console.error('Error changing temporale view:', error);
+                }
+            }
+
+            async function handleCategorieViewChange(view) {
+                try {
+                    const chartEngine = await window.DashboardRO?.loadModule('chartEngine');
+                    if (chartEngine) {
+                        chartEngine.toggleCategorieView(view);
+                    }
+                } catch (error) {
+                    console.error('Error changing categorie view:', error);
+                }
+            }
+
+            async function handlePercRealizzazioneViewChange(view) {
+                try {
+                    const chartEngine = await window.DashboardRO?.loadModule('chartEngine');
+                    if (chartEngine) {
+                        chartEngine.togglePercRealizzazioneView(view);
+                    }
+                } catch (error) {
+                    console.error('Error changing perc realizzazione view:', error);
+                }
+            }
+
+            async function handleRefreshAnalisiProbabilistica() {
+                try {
+                    const chartEngine = await window.DashboardRO?.loadModule('chartEngine');
+                    if (chartEngine) {
+                        chartEngine.refreshAnalisiProbabilistica();
+                    }
+                } catch (error) {
+                    console.error('Error refreshing analisi probabilistica:', error);
+                }
+            }
+
+            async function handleToggleTableView() {
+                try {
+                    const tableEngine = await window.DashboardRO?.loadModule('tableEngine');
+                    if (tableEngine) {
+                        tableEngine.toggleTableView();
+                    }
+                } catch (error) {
+                    console.error('Error toggling table view:', error);
+                }
+            }
+
+            async function handleSortTable(column) {
+                try {
+                    const tableEngine = await window.DashboardRO?.loadModule('tableEngine');
+                    if (tableEngine) {
+                        tableEngine.sortTable(column);
+                    }
+                } catch (error) {
+                    console.error('Error sorting table:', error);
+                }
+            }
+
+            async function handleChangePage(direction) {
+                try {
+                    const tableEngine = await window.DashboardRO?.loadModule('tableEngine');
+                    if (tableEngine) {
+                        tableEngine.changePage(direction);
+                    }
+                } catch (error) {
+                    console.error('Error changing page:', error);
+                }
+            }
+
+            async function handleExportFilteredData() {
+                try {
+                    const exportEngine = await window.DashboardRO?.loadModule('exportEngine');
+                    if (exportEngine) {
+                        exportEngine.exportFilteredData();
+                    }
+                } catch (error) {
+                    console.error('Error exporting filtered data:', error);
+                }
+            }
+
+            async function handleGenerateReport() {
+                try {
+                    const exportEngine = await window.DashboardRO?.loadModule('exportEngine');
+                    if (exportEngine) {
+                        exportEngine.generateReport();
+                    }
+                } catch (error) {
+                    console.error('Error generating report:', error);
+                }
+            }
+
+            async function handleDownloadReport() {
+                try {
+                    const exportEngine = await window.DashboardRO?.loadModule('exportEngine');
+                    if (exportEngine) {
+                        exportEngine.downloadReport();
+                    }
+                } catch (error) {
+                    console.error('Error downloading report:', error);
+                }
+            }
+
+            async function handleShareData() {
+                try {
+                    const exportEngine = await window.DashboardRO?.loadModule('exportEngine');
+                    if (exportEngine) {
+                        exportEngine.shareData();
+                    }
+                } catch (error) {
+                    console.error('Error sharing data:', error);
+                }
+            }
+
+            async function handlePrintDashboard() {
+                try {
+                    const exportEngine = await window.DashboardRO?.loadModule('exportEngine');
+                    if (exportEngine) {
+                        exportEngine.printDashboard();
+                    }
+                } catch (error) {
+                    console.error('Error printing dashboard:', error);
+                }
+            }
+
+            async function handleCloseModal(modalId) {
+                try {
+                    const exportEngine = await window.DashboardRO?.loadModule('exportEngine');
+                    if (exportEngine) {
+                        exportEngine.closeModal(modalId);
+                    }
+                } catch (error) {
+                    console.error('Error closing modal:', error);
+                }
+            }
+
+            // Module loading indicator
+            window.addEventListener('load', () => {
+                console.log('🎯 Page fully loaded, modules ready');
+            });
+        </script>
+    </body>
+</html>
